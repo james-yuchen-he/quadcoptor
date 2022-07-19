@@ -424,7 +424,7 @@ int convert_receiver_channel(byte function){
   else return 1500;
 }
 
-void imu_init(){
+inline void imu_init(){
   //Setup the MPU-6050
   if(eeprom_data[31] == 1){
     Wire.beginTransmission(gyro_address);                        //Start communication with the address found during search.
@@ -502,7 +502,7 @@ void imu_init(){
   }
 }
 
-void feed_esc_dummy_pulse()
+inline void feed_esc_dummy_pulse()
 {
   //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while doing other stuff
   PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
@@ -511,7 +511,7 @@ void feed_esc_dummy_pulse()
   delayMicroseconds(3000);                                   //Wait 3000us.
 }
 
-void radio_interrup_init()
+inline void radio_interrup_init()
 {
   PCICR |= (1 << PCIE0);                                       //Set PCIE0 to enable PCMSK0 scan.
   PCMSK0 |= (1 << PCINT0);                                     //Set PCINT0 (digital input 8) to trigger an interrupt on state change.
