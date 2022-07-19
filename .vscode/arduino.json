@@ -1,0 +1,4 @@
+{
+    "board": "arduino:avr:uno",
+    "sketch": "flight_controller\\flight_controller.ino"
+}

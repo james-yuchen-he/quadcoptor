@@ -82,10 +82,7 @@ void setup(){
   imu_init();                                        //Set the specific gyro registers.
 
   for (cal_int = 0; cal_int < 1250 ; cal_int ++){              //Wait 5 seconds before continuing.
-    PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
-    delayMicroseconds(1000);                                   //Wait 1000us.
-    PORTD &= B00001111;                                        //Set digital poort 4, 5, 6 and 7 low.
-    delayMicroseconds(3000);                                   //Wait 3000us.
+    feed_esc_dummy_pulse();
   }
 
   //Let's take multiple gyro data samples so we can determine the average gyro offset (calibration).
@@ -95,22 +92,14 @@ void setup(){
     gyro_axis_cal[1] += gyro_axis[1];                          //Ad roll value to gyro_roll_cal.
     gyro_axis_cal[2] += gyro_axis[2];                          //Ad pitch value to gyro_pitch_cal.
     gyro_axis_cal[3] += gyro_axis[3];                          //Ad yaw value to gyro_yaw_cal.
-    //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while calibrating the gyro.
-    PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
-    delayMicroseconds(1000);                                   //Wait 1000us.
-    PORTD &= B00001111;                                        //Set digital poort 4, 5, 6 and 7 low.
-    delay(3);                                                  //Wait 3 milliseconds before the next loop.
+    feed_esc_dummy_pulse();
   }
   //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
   gyro_axis_cal[1] /= 2000;                                    //Divide the roll total by 2000.
   gyro_axis_cal[2] /= 2000;                                    //Divide the pitch total by 2000.
   gyro_axis_cal[3] /= 2000;                                    //Divide the yaw total by 2000.
 
-  PCICR |= (1 << PCIE0);                                       //Set PCIE0 to enable PCMSK0 scan.
-  PCMSK0 |= (1 << PCINT0);                                     //Set PCINT0 (digital input 8) to trigger an interrupt on state change.
-  PCMSK0 |= (1 << PCINT1);                                     //Set PCINT1 (digital input 9)to trigger an interrupt on state change.
-  PCMSK0 |= (1 << PCINT2);                                     //Set PCINT2 (digital input 10)to trigger an interrupt on state change.
-  PCMSK0 |= (1 << PCINT3);                                     //Set PCINT3 (digital input 11)to trigger an interrupt on state change.
+  radio_interrup_init();
 
   //Wait until the receiver is active and the throtle is set to the lower position.
   while(receiver_input_channel_3 < 990 || receiver_input_channel_3 > 1020 || receiver_input_channel_4 < 1400){
@@ -511,4 +500,22 @@ void imu_init(){
       while(1)delay(10);                                         //Stay in this loop for ever
     }
   }
+}
+
+void feed_esc_dummy_pulse()
+{
+  //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while doing other stuff
+  PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
+  delayMicroseconds(1000);                                   //Wait 1000us.
+  PORTD &= B00001111;                                        //Set digital poort 4, 5, 6 and 7 low.
+  delayMicroseconds(3000);                                   //Wait 3000us.
+}
+
+void radio_interrup_init()
+{
+  PCICR |= (1 << PCIE0);                                       //Set PCIE0 to enable PCMSK0 scan.
+  PCMSK0 |= (1 << PCINT0);                                     //Set PCINT0 (digital input 8) to trigger an interrupt on state change.
+  PCMSK0 |= (1 << PCINT1);                                     //Set PCINT1 (digital input 9)to trigger an interrupt on state change.
+  PCMSK0 |= (1 << PCINT2);                                     //Set PCINT2 (digital input 10)to trigger an interrupt on state change.
+  PCMSK0 |= (1 << PCINT3);                                     //Set PCINT3 (digital input 11)to trigger an interrupt on state change.
 }
