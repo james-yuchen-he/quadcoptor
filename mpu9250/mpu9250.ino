@@ -26,6 +26,7 @@
 
 #include "quaternionFilters.h"
 #include "MPU9250.h"
+#include <stdint.h>
 
 #define AHRS false         // Set to false for basic data read
 #define SerialDebug true  // Set to true to get Serial output for debugging
@@ -38,22 +39,20 @@ MPU9250 myIMU(MPU9250_ADDRESS, I2Cport, I2Cclock);
 
 void setup()
 {
-  Wire.begin();
-  // TWBR = 12;  // 400 kbit/sec I2C speed
-  Serial.begin(38400);
+    Wire.begin();
+    // TWBR = 12;  // 400 kbit/sec I2C speed
+    Serial.begin(38400);
 
-  while(!Serial){};
+    while(!Serial){};
 
-  // Read the WHO_AM_I register, this is a good test of communication
-  byte c = myIMU.readByte(MPU9250_ADDRESS, WHO_AM_I_MPU9250);
-  Serial.print(F("MPU9250 I AM 0x"));
-  Serial.print(c, HEX);
-  Serial.print(F(" I should be 0x"));
-  Serial.println(0x71, HEX);
-
-  if (c == 0x71) // WHO_AM_I should always be 0x71
-  {
-    Serial.println(F("MPU9250 is online..."));
+    // Read the WHO_AM_I register, this is a good test of communication
+    uint8_t imu_read = myIMU.readByte(MPU9250_ADDRESS, WHO_AM_I_MPU9250);
+    if (imu_read != 0x71)
+    {
+        Serial.println("E: MPU9250 communication test failed. Aborting!");
+        Serial.flush();
+        abort();
+    }
 
     // Start by performing self test and reporting values
     myIMU.MPU9250SelfTest(myIMU.selfTest);
@@ -132,25 +131,14 @@ void setup()
 
     if(SerialDebug)
     {
-      Serial.println("Magnetometer:");
-      Serial.print("X-Axis sensitivity adjustment value ");
-      Serial.println(myIMU.factoryMagCalibration[0], 2);
-      Serial.print("Y-Axis sensitivity adjustment value ");
-      Serial.println(myIMU.factoryMagCalibration[1], 2);
-      Serial.print("Z-Axis sensitivity adjustment value ");
-      Serial.println(myIMU.factoryMagCalibration[2], 2);
+        Serial.println("Magnetometer:");
+        Serial.print("X-Axis sensitivity adjustment value ");
+        Serial.println(myIMU.factoryMagCalibration[0], 2);
+        Serial.print("Y-Axis sensitivity adjustment value ");
+        Serial.println(myIMU.factoryMagCalibration[1], 2);
+        Serial.print("Z-Axis sensitivity adjustment value ");
+        Serial.println(myIMU.factoryMagCalibration[2], 2);
     }
-  } // if (c == 0x71)
-  else
-  {
-    Serial.print("Could not connect to MPU9250: 0x");
-    Serial.println(c, HEX);
-
-    // Communication failed, stop here
-    Serial.println(F("Communication failed, abort!"));
-    Serial.flush();
-    abort();
-  }
 }
 
 void loop()
@@ -244,7 +232,6 @@ void loop()
       }
 
       myIMU.count = millis();
-      digitalWrite(myLed, !digitalRead(myLed));  // toggle led
     } // if (myIMU.delt_t > 500)
   } // if (!AHRS)
   else
