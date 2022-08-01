@@ -53,6 +53,17 @@ void setup()
         Serial.flush();
         abort();
     }
+    // Serial.println("I: MPU9250 communication test success!");
+
+    uint8_t mag_read = myIMU.readByte(AK8963_ADDRESS, WHO_AM_I_AK8963);
+    if (mag_read != 0x48)
+    {
+        Serial.print("E: The magnetometer self-identifies as ");
+        Serial.print(mag_read, HEX);
+        Serial.println(" Magnetometer communication test failed. Aborting!");
+        Serial.flush();
+        abort();
+    }
 
     // Start by performing self test and reporting values
     myIMU.MPU9250SelfTest(myIMU.selfTest);
@@ -76,23 +87,6 @@ void setup()
     // Initialize device for active mode read of acclerometer, gyroscope, and
     // temperature
     Serial.println("MPU9250 initialized for active data mode....");
-
-    // Read the WHO_AM_I register of the magnetometer, this is a good test of
-    // communication
-    byte d = myIMU.readByte(AK8963_ADDRESS, WHO_AM_I_AK8963);
-    Serial.print("AK8963 ");
-    Serial.print("I AM 0x");
-    Serial.print(d, HEX);
-    Serial.print(" I should be 0x");
-    Serial.println(0x48, HEX);
-
-    if (d != 0x48)
-    {
-      // Communication failed, stop here
-      Serial.println(F("Communication failed, abort!"));
-      Serial.flush();
-      abort();
-    }
 
     // Get magnetometer calibration from AK8963 ROM
     myIMU.initAK8963(myIMU.factoryMagCalibration);
