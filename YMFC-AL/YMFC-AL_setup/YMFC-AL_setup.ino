@@ -223,6 +223,16 @@ void loop(){
     }
 
     if(type == 0){
+      Serial.println(F("Searching for MPU-9250 on address 0x68/104"));
+      delay(1000);
+      if(search_gyro(0x68, 0x75) == 0x71){                                    //MPU9250 WHO_AM_I address: 0x75, expected WHO_AM_I value: 0x71
+        Serial.println(F("MPU-9250 found on address 0x68"));
+        type = 1;
+        gyro_address = 0x68;
+      }
+    }
+
+    if(type == 0){
       Serial.println(F("Searching for L3G4200D on address 0x68/104"));
       delay(1000);
       if(search_gyro(0x68, 0x0F) == 0xD3){
