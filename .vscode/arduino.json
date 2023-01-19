@@ -1,0 +1,5 @@
+{
+    "sketch": "myDrone\\flight_controller\\flight_controller_ground_up.ino",
+    "board": "arduino:avr:uno",
+    "port": "COM3"
+}
