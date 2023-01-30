@@ -1,3 +1,8 @@
+/*
+ * Introduction: This module contains the bare minimum code to demonstrate configuring an MPU-6050 chip,
+ * reading raw data from it, and post processing to compute estimations of the drone's orientation.
+ */
+
 #include <Wire.h>                                    //Include the Wire.h library so we can communicate with the gyro.
 #include <EEPROM.h>                                  //Include the EEPROM.h library so we can store information onto the EEPROM
 
