@@ -47,6 +47,7 @@ boolean auto_level = true;                 //Auto level on (true) or off (false)
 byte channel_1_prev_state, channel_2_prev_state, channel_3_prev_state, channel_4_prev_state;
 byte eeprom_data[36];
 byte highByte, lowByte;
+// teachable: keyword volatile
 volatile int receiver_input_channel_1, receiver_input_channel_2, receiver_input_channel_3, receiver_input_channel_4;
 int counter_channel_1, counter_channel_2, counter_channel_3, counter_channel_4, loop_counter;
 int esc_1_cmd, esc_2_cmd, esc_3_cmd, esc_4_cmd;
@@ -59,9 +60,9 @@ int acc_axis[4], gyro_axis[4];
 float roll_level_adjust, pitch_level_adjust;
 
 long acc_x, acc_y, acc_z, acc_total_vector;
-unsigned long timer_channel_1, timer_channel_2, timer_channel_3, timer_channel_4, esc_timer, esc_loop_timer;
+unsigned long esc_1_falling_edge_mark, esc_2_falling_edge_mark, esc_3_falling_edge_mark, esc_4_falling_edge_mark, esc_high_timer;
 unsigned long timer_1, timer_2, timer_3, timer_4, current_time;
-unsigned long loop_timer;
+unsigned long control_loop_timer;
 double gyro_pitch = 0, gyro_roll = 0, gyro_yaw = 0;
 double gyro_axis_cal[4];
 float pid_error_temp;
@@ -136,7 +137,7 @@ void setup(){
   while(receiver_input_channel_3 < 990 || receiver_input_channel_3 > 1020 || receiver_input_channel_4 < 1400){
     receiver_input_channel_3 = convert_receiver_channel(3);                 //Convert the actual receiver signals for throttle to the standard 1000 - 2000us
     receiver_input_channel_4 = convert_receiver_channel(4);                 //Convert the actual receiver signals for yaw to the standard 1000 - 2000us
-    start ++;                                                               //While waiting increment start whith every loop.
+    start++;                                                               //While waiting increment start whith every loop.
     //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while waiting for the receiver inputs.
     PORTD |= B11110000;                                                     //Set digital poort 4, 5, 6 and 7 high.
     delayMicroseconds(1000);                                                //Wait 1000us.
@@ -158,7 +159,7 @@ void setup(){
   // Vb = 1/k * (5/1023) * analogRead(0) + 0.59
   battery_voltage = 0.01447109 * analogRead(0) + 0.59;
   Serial.println(battery_voltage, 2);
-  loop_timer = micros();                                                    //Set the timer for the next loop.
+  control_loop_timer = micros();                                                    //Set the timer for the next loop.
 
   //When everything is done, turn off the led.
   digitalWrite(12,LOW);                                                     //Turn off the warning led.
@@ -219,7 +220,6 @@ void loop(){
     pitch_level_adjust = 0;                                                 //Set the pitch angle correction to zero.
     roll_level_adjust = 0;                                                  //Set the roll angle correcion to zero.
   }
-
 
   //For starting the motors: throttle low and yaw left (step 1).
   if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 < 1050)start = 1;
@@ -328,29 +328,30 @@ void loop(){
   //the Q&A page:
   //! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
 
-  if(micros() - loop_timer > 4050)digitalWrite(12, HIGH);                   //Turn on the LED if the loop time exceeds 4050us.
+  if(micros() - control_loop_timer > 4050)digitalWrite(12, HIGH);                   //Turn on the LED if the loop time exceeds 4050us.
 
   //All the information for controlling the motor's is available.
   //The refresh rate is 250Hz. That means the ESCs needs new pulses every 4ms.
-  while(micros() - loop_timer < 4000);                                      //We wait until 4000us are passed.
-  loop_timer = micros();                                                    //Set the timer for the next loop.
+  while(micros() - control_loop_timer < 4000);                                      //We wait until 4000us are passed.
+  control_loop_timer = micros();                                                    //Set the timer for the next loop.
 
   PORTD |= B11110000;                                                       //Set digital outputs 4,5,6 and 7 high.
-  timer_channel_1 = esc_1_cmd + loop_timer;                                     //Calculate the time of the faling edge of the esc-1 pulse.
-  timer_channel_2 = esc_2_cmd + loop_timer;                                     //Calculate the time of the faling edge of the esc-2 pulse.
-  timer_channel_3 = esc_3_cmd + loop_timer;                                     //Calculate the time of the faling edge of the esc-3 pulse.
-  timer_channel_4 = esc_4_cmd + loop_timer;                                     //Calculate the time of the faling edge of the esc-4 pulse.
+  esc_1_falling_edge_mark = esc_1_cmd + control_loop_timer;                                     //Calculate the time of the faling edge of the esc-1 pulse.
+  esc_2_falling_edge_mark = esc_2_cmd + control_loop_timer;                                     //Calculate the time of the faling edge of the esc-2 pulse.
+  esc_3_falling_edge_mark = esc_3_cmd + control_loop_timer;                                     //Calculate the time of the faling edge of the esc-3 pulse.
+  esc_4_falling_edge_mark = esc_4_cmd + control_loop_timer;                                     //Calculate the time of the faling edge of the esc-4 pulse.
 
   //There is always 1000us of spare time. So let's do something usefull that is very time consuming.
   //Get the current gyro and receiver data and scale it to degrees per second for the pid calculations.
   gyro_signalen();
 
   while(PORTD >= 16){                                                       //Stay in this loop until output 4,5,6 and 7 are low.
-    esc_loop_timer = micros();                                              //Read the current time.
-    if(timer_channel_1 <= esc_loop_timer)PORTD &= B11101111;                //Set digital output 4 to low if the time is expired.
-    if(timer_channel_2 <= esc_loop_timer)PORTD &= B11011111;                //Set digital output 5 to low if the time is expired.
-    if(timer_channel_3 <= esc_loop_timer)PORTD &= B10111111;                //Set digital output 6 to low if the time is expired.
-    if(timer_channel_4 <= esc_loop_timer)PORTD &= B01111111;                //Set digital output 7 to low if the time is expired.
+    // teachable: explain how MCU timer works, and thus how this micros() function works
+    esc_high_timer = micros();                                              //Read the current time.
+    if(esc_1_falling_edge_mark <= esc_high_timer)PORTD &= B11101111;                //Set digital output 4 to low if the time is expired.
+    if(esc_2_falling_edge_mark <= esc_high_timer)PORTD &= B11011111;                //Set digital output 5 to low if the time is expired.
+    if(esc_3_falling_edge_mark <= esc_high_timer)PORTD &= B10111111;                //Set digital output 6 to low if the time is expired.
+    if(esc_4_falling_edge_mark <= esc_high_timer)PORTD &= B01111111;                //Set digital output 7 to low if the time is expired.
   }
 }
 
