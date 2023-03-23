@@ -44,7 +44,7 @@ boolean auto_level = true;                 //Auto level on (true) or off (false)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Declaring global variables
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-byte last_channel_1, last_channel_2, last_channel_3, last_channel_4;
+byte channel_1_prev_state, channel_2_prev_state, channel_3_prev_state, channel_4_prev_state;
 byte eeprom_data[36];
 byte highByte, lowByte;
 volatile int receiver_input_channel_1, receiver_input_channel_2, receiver_input_channel_3, receiver_input_channel_4;
@@ -53,7 +53,7 @@ int esc_1, esc_2, esc_3, esc_4;
 int throttle;
 float battery_voltage;
 int cal_int, start, gyro_address;
-int receiver_input[5];
+int raw_receiver_inputs[5];
 int temperature;
 int acc_axis[4], gyro_axis[4];
 float roll_level_adjust, pitch_level_adjust;
@@ -363,48 +363,48 @@ ISR(PCINT0_vect){
   current_time = micros();
   //Channel 1=========================================
   if(PINB & B00000001){                                                     //Is input 8 high?
-    if(last_channel_1 == LOW){                                                //Input 8 changed from 0 to 1.
-      last_channel_1 = HIGH;                                                   //Remember current input state.
+    if(channel_1_prev_state == LOW){                                                //Input 8 changed from 0 to 1.
+      channel_1_prev_state = HIGH;                                                   //Remember current input state.
       timer_1 = current_time;                                               //Set timer_1 to current_time.
     }
   }
-  else if(last_channel_1 == HIGH){                                             //Input 8 is not high and changed from 1 to 0.
-    last_channel_1 = LOW;                                                     //Remember current input state.
-    receiver_input[1] = current_time - timer_1;                             //Channel 1 is current_time - timer_1.
+  else if(channel_1_prev_state == HIGH){                                             //Input 8 is not high and changed from 1 to 0.
+    channel_1_prev_state = LOW;                                                     //Remember current input state.
+    raw_receiver_inputs[1] = current_time - timer_1;                             //Channel 1 is current_time - timer_1.
   }
   //Channel 2=========================================
   if(PINB & B00000010 ){                                                    //Is input 9 high?
-    if(last_channel_2 == LOW){                                                //Input 9 changed from 0 to 1.
-      last_channel_2 = HIGH;                                                   //Remember current input state.
+    if(channel_2_prev_state == LOW){                                                //Input 9 changed from 0 to 1.
+      channel_2_prev_state = HIGH;                                                   //Remember current input state.
       timer_2 = current_time;                                               //Set timer_2 to current_time.
     }
   }
-  else if(last_channel_2 == HIGH){                                             //Input 9 is not high and changed from 1 to 0.
-    last_channel_2 = LOW;                                                     //Remember current input state.
-    receiver_input[2] = current_time - timer_2;                             //Channel 2 is current_time - timer_2.
+  else if(channel_2_prev_state == HIGH){                                             //Input 9 is not high and changed from 1 to 0.
+    channel_2_prev_state = LOW;                                                     //Remember current input state.
+    raw_receiver_inputs[2] = current_time - timer_2;                             //Channel 2 is current_time - timer_2.
   }
   //Channel 3=========================================
   if(PINB & B00000100 ){                                                    //Is input 10 high?
-    if(last_channel_3 == LOW){                                                //Input 10 changed from 0 to 1.
-      last_channel_3 = HIGH;                                                   //Remember current input state.
+    if(channel_3_prev_state == LOW){                                                //Input 10 changed from 0 to 1.
+      channel_3_prev_state = HIGH;                                                   //Remember current input state.
       timer_3 = current_time;                                               //Set timer_3 to current_time.
     }
   }
-  else if(last_channel_3 == HIGH){                                             //Input 10 is not high and changed from 1 to 0.
-    last_channel_3 = LOW;                                                     //Remember current input state.
-    receiver_input[3] = current_time - timer_3;                             //Channel 3 is current_time - timer_3.
+  else if(channel_3_prev_state == HIGH){                                             //Input 10 is not high and changed from 1 to 0.
+    channel_3_prev_state = LOW;                                                     //Remember current input state.
+    raw_receiver_inputs[3] = current_time - timer_3;                             //Channel 3 is current_time - timer_3.
 
   }
   //Channel 4=========================================
   if(PINB & B00001000 ){                                                    //Is input 11 high?
-    if(last_channel_4 == LOW){                                                //Input 11 changed from 0 to 1.
-      last_channel_4 = HIGH;                                                   //Remember current input state.
+    if(channel_4_prev_state == LOW){                                                //Input 11 changed from 0 to 1.
+      channel_4_prev_state = HIGH;                                                   //Remember current input state.
       timer_4 = current_time;                                               //Set timer_4 to current_time.
     }
   }
-  else if(last_channel_4 == HIGH){                                             //Input 11 is not high and changed from 1 to 0.
-    last_channel_4 = LOW;                                                     //Remember current input state.
-    receiver_input[4] = current_time - timer_4;                             //Channel 4 is current_time - timer_4.
+  else if(channel_4_prev_state == HIGH){                                             //Input 11 is not high and changed from 1 to 0.
+    channel_4_prev_state = LOW;                                                     //Remember current input state.
+    raw_receiver_inputs[4] = current_time - timer_4;                             //Channel 4 is current_time - timer_4.
   }
 }
 
@@ -509,7 +509,7 @@ int convert_receiver_channel(byte function){
   if(eeprom_data[function + 23] & 0b10000000)reverse = 1;                      //Reverse channel when most significant bit is set
   else reverse = 0;                                                            //If the most significant is not set there is no reverse
 
-  actual = receiver_input[channel];                                            //Read the actual receiver value for the corresponding function
+  actual = raw_receiver_inputs[channel];                                            //Read the actual receiver value for the corresponding function
   low = (eeprom_data[channel * 2 + 15] << 8) | eeprom_data[channel * 2 + 14];  //Store the low value for the specific receiver input channel
   center = (eeprom_data[channel * 2 - 1] << 8) | eeprom_data[channel * 2 - 2]; //Store the center value for the specific receiver input channel
   high = (eeprom_data[channel * 2 + 7] << 8) | eeprom_data[channel * 2 + 6];   //Store the high value for the specific receiver input channel
