@@ -1,47 +1,95 @@
 #include <EEPROM.h>
 #include <Wire.h>
 
-#define setup_data_SIZE 36
+#define SETUP_DATA_SIZE 36
 #define BAUD_RATE 57600
 #define GYRO_ADDR_INDEX 32
 #define LED_PIN 12
 #define CAL_SAMPLES 2000
+#define GYRO_RAW_2_DEG_PER_FOUR_MS 0.0000611
 
 #define MPU6050_PWR_MGMT_1 0x6B
 #define MPU6050_CONFIG 0x1A
 #define MPU6050_GYRO_CONFIG 0x1B
 #define MPU6050_ACCEL_CONFIG 0x1C
 
-uint8_t setup_data[setup_data_SIZE];
+uint8_t setup_data[SETUP_DATA_SIZE];
 uint8_t gyro_addr = 0;
 uint16_t temperature;
 uint32_t loop_start_mark = 0;
 uint32_t calibration_sample_cnt = 0;
+uint8_t loop_counter = 0;
 
-int16_t raw_gyro_data[3];
+int16_t raw_gyro_data[4];
 int16_t gyro_pitch_raw = 0, gyro_roll_raw = 0, gyro_yaw_raw = 0;
-int32_t gyro_offset_raw[3];
+float gyro_yaw_rad = 0;
+double gyro_offset_raw[3];
 
-int16_t raw_acc_data[3];
+double pitch = 0, roll = 0, yaw = 0;
+
+int16_t raw_acc_data[4];
 int16_t acc_x_raw = 0, acc_y_raw = 0, acc_z_raw = 0;
+int32_t acc_total_vector = 0;
+double pitch_acc = 0, roll_acc = 0;
+bool first_angle = true;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(BAUD_RATE);
   Wire.begin();
-  for (uint8_t i = 0; i < setup_data_SIZE; i++)
+  for (uint8_t i = 0; i < SETUP_DATA_SIZE; i++)
   {
     setup_data[i] = EEPROM.read(i);
   }
   gyro_addr = setup_data[GYRO_ADDR_INDEX];
   imu_init();
   validate_mpu();
+  calibrate_gyro();
   loop_start_mark = micros();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  // make sure every loop lasts 4000 ms for the numerical integration to work
+  // properly
+  while(loop_start_mark + 4000 > micros());
+  loop_start_mark = micros();     
+  
+  read_imu_data();
+  pitch += gyro_pitch_raw * GYRO_RAW_2_DEG_PER_FOUR_MS;
+  roll += gyro_roll_raw * GYRO_RAW_2_DEG_PER_FOUR_MS; 
+  gyro_yaw_rad = radians(gyro_yaw_raw * GYRO_RAW_2_DEG_PER_FOUR_MS);
 
+  //If the IMU has yawed transfer the roll angle to the pitch angel.
+  pitch -= roll * sin(gyro_yaw_rad);
+  //If the IMU has yawed transfer the pitch angle to the roll angel.
+  roll += pitch * sin(gyro_yaw_rad);
+
+  //Accelerometer angle calculations
+  acc_total_vector = sqrt((acc_x_raw * acc_x_raw) + (acc_y_raw * acc_y_raw) + (acc_z_raw * acc_z_raw));
+
+  pitch_acc = degrees(asin((float)acc_y_raw/acc_total_vector));                //Calculate the pitch angle.
+  roll_acc = degrees(asin((float)acc_x_raw/acc_total_vector)) * -1;                //Calculate the roll angle.
+  
+  if(first_angle){
+    pitch = pitch_acc;                                                 //Set the pitch angle to the accelerometer angle.
+    roll = roll_acc;                                                   //Set the roll angle to the accelerometer angle.
+    first_angle = false;
+  }
+  else{
+    pitch = pitch * 0.9996 + pitch_acc * 0.0004;                 //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
+    roll = roll * 0.9996 + roll_acc * 0.0004;                    //Correct the drift of the gyro roll angle with the accelerometer roll angle.
+  }
+
+  // can't print all the data at once as it takes to long and the numerical integration will be off.
+  if(loop_counter == 0)Serial.print("Pitch(deg): ");
+  if(loop_counter == 1)Serial.print(pitch ,2);
+  if(loop_counter == 2)Serial.print(" Roll(deg): ");
+  if(loop_counter == 3)Serial.print(roll ,2);
+  if(loop_counter == 4)Serial.print(" Yaw(deg/sec): ");
+  if(loop_counter == 5)Serial.println(gyro_yaw_raw / 65.5 ,2);
+
+  loop_counter++;
+  if(loop_counter == 60)loop_counter = 0;      
 }
 
 void imu_init()
@@ -99,20 +147,20 @@ void read_imu_data()
   Wire.requestFrom((int)gyro_addr, 14);
   while (Wire.available() < 14);
 
-  raw_acc_data[0] = Wire.read()<<8 | Wire.read();                   
-  raw_acc_data[1] = Wire.read()<<8 | Wire.read();
+  raw_acc_data[1] = Wire.read()<<8 | Wire.read();                   
   raw_acc_data[2] = Wire.read()<<8 | Wire.read();
+  raw_acc_data[3] = Wire.read()<<8 | Wire.read();
   temperature = Wire.read()<<8 | Wire.read();
-  raw_gyro_data[0] = Wire.read()<<8 | Wire.read();
   raw_gyro_data[1] = Wire.read()<<8 | Wire.read();
   raw_gyro_data[2] = Wire.read()<<8 | Wire.read();
+  raw_gyro_data[3] = Wire.read()<<8 | Wire.read();
 
   //Only compensate if the calibration was performed.
   if(calibration_sample_cnt == CAL_SAMPLES)
   {
-    raw_gyro_data[0] -= gyro_offset_raw[0];
-    raw_gyro_data[1] -= gyro_offset_raw[1];
-    raw_gyro_data[2] -= gyro_offset_raw[2];
+    raw_gyro_data[1] -= gyro_offset_raw[0];
+    raw_gyro_data[2] -= gyro_offset_raw[1];
+    raw_gyro_data[3] -= gyro_offset_raw[2];
   }
 
   gyro_roll_raw = raw_gyro_data[setup_data[28] & 0b00000011];           //Set gyro_roll to the correct axis that was stored in the EEPROM.
@@ -129,4 +177,39 @@ void read_imu_data()
   acc_z_raw = raw_acc_data[setup_data[30] & 0b00000011];                //Set acc_z to the correct axis that was stored in the EEPROM.
   if(setup_data[30] & 0b10000000) acc_z_raw *= -1;                   //Invert acc_z if the MSB of EEPROM bit 30 is set.  
 }
+
+void print_raw_accel()
+{
+  Serial.print("acc_x_raw=");
+  Serial.print(acc_x_raw);
+  Serial.print(" acc_y_raw= ");
+  Serial.print(acc_y_raw);
+  Serial.print(" acc_z_raw= ");
+  Serial.println(acc_z_raw);
+}
+
+void calibrate_gyro()
+{
+  for (; calibration_sample_cnt < CAL_SAMPLES; calibration_sample_cnt++)
+  {
+    if(calibration_sample_cnt % 125 == 0)
+    {
+      // blink the LED to indicate calibration
+      digitalWrite(12, !digitalRead(12));
+    }
+
+    read_imu_data();
+    gyro_offset_raw[1] += raw_gyro_data[1];
+    gyro_offset_raw[2] += raw_gyro_data[2];
+    gyro_offset_raw[3] += raw_gyro_data[3];
+    delay(3);
+  }
+
+  // Divide by 2000 to get the average gyro offset.
+  gyro_offset_raw[1] /= CAL_SAMPLES;
+  gyro_offset_raw[2] /= CAL_SAMPLES;
+  gyro_offset_raw[3] /= CAL_SAMPLES;
+}
+
+
 

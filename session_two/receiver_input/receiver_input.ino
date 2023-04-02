@@ -6,22 +6,18 @@
 #define BAUD_RATE 57600
 #define NUM_RADIO_CHANNELS 4
 
-uint8_t setup_data[EEPROM_DATA_SIZE];
 uint8_t channel_1_prev_state = LOW, channel_2_prev_state = LOW, channel_3_prev_state = LOW, channel_4_prev_state = LOW;
 uint32_t current_time = 0;
 uint32_t channel_1_timer = 0, channel_2_timer = 0, channel_3_timer = 0, channel_4_timer = 0;
 uint32_t receiver_input[NUM_RADIO_CHANNELS];
 
 void setup() {
-  for (uint8_t i = 0; i < EEPROM_DATA_SIZE; i++)
-  {
-    setup_data[i] = EEPROM.read(i);
-    PCICR |= (1 << PCIE0);
-    PCMSK0 |= (1 << PCINT0);
-    PCMSK0 |= (1 << PCINT1);
-    PCMSK0 |= (1 << PCINT2);
-    PCMSK0 |= (1 << PCINT3);
-  }
+  PCICR |= (1 << PCIE0);
+  PCMSK0 |= (1 << PCINT0);
+  PCMSK0 |= (1 << PCINT1);
+  PCMSK0 |= (1 << PCINT2);
+  PCMSK0 |= (1 << PCINT3);
+
   Serial.begin(BAUD_RATE);
 }
 

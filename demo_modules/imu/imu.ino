@@ -21,7 +21,7 @@ boolean first_angle = false;
 void setup() {
   Serial.begin(57600);                                                                  //Start the serial port.
   Wire.begin();                                                                         //Start the wire library as master
-  for(data = 0; data <= 35; data++)eeprom_data[data] = EEPROM.read(data);               //Read EEPROM for faster data access
+  for(data = 0; data <= 35; data++) eeprom_data[data] = EEPROM.read(data);               //Read EEPROM for faster data access
   gyro_address = eeprom_data[32];                                                       //Store the gyro address in the variable.
   set_gyro_registers();                                                                 //Set the specific gyro registers.
   zero_timer = micros();                                                                //Set the zero_timer for the first loop.
