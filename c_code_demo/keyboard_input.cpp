@@ -1,9 +1,17 @@
 #include <iostream>
 
 using namespace std;
+
+// To read something, we need somewhere to read into. We need somewhere in the
+// computer's memory to place what we read. This place is called an object. An
+// object is a region of memory with a type that specifies what kind of information
+// can be stored in it. A named object is called a variable.
+// A value is the specific data that is put into the region of memory.
+// definition: a statement that defines a variable, usually with an intial value
+
 // int main()
 // {
-//     cout << "Please enter your fir st name (followed by 'enter'):" << endl;
+//     cout << "Please enter your first name (followed by 'enter'):" << endl;
 //     // first_name is a variable of type string
 //     string first_name;
 //     cin >> first_name;
@@ -11,13 +19,7 @@ using namespace std;
 //     return 0;
 // }
 
-
-// A variable is a region of memory with a name and a type.
-// The type specifies what kind of data can be store in that region of memory
-// A value is the specific data that is put into the region of memory.
-// definition: a statement that defines a variable, usually with an intial value
-
-
+// demo for type and the operations that are possible for different types
 // int main()
 // {
 //     cout << "Please enter your first name (followed by 'enter'):" << endl;
@@ -103,21 +105,6 @@ using namespace std;
 //     cout << "a=" << a << " b=" << b << endl;
 // }
 
-// int main()
-// {
-//     string prev = "";
-//     string current;
-//     while (cin >> current)
-//     {
-//         if (prev == current)
-//         {
-//             cout << "repeated words: " << current << endl;
-//         }
-//         prev = current;
-//     }
-//     return 0;
-// }
-
 // type casting
 // int main()
 // {
@@ -127,3 +114,28 @@ using namespace std;
 //     cout << "The value of variable letter_A is: " << letter_A << endl;
 //     return 0;
 // }
+
+int main()
+{
+    const int num_elements = 5;
+    int my_array[num_elements];
+    for (int i = 0; i < 5; i++)
+    {
+        my_array[i] = i * i;
+    }
+
+    int counter = num_elements;
+    while (counter >= 0)
+    {
+        cout << my_array[counter] << " " << endl;
+        counter = counter - 1;
+    }
+
+    cout << endl;
+    return 0;
+}
+
+int factorial(int num)
+{
+    // return the factorial of num
+}
