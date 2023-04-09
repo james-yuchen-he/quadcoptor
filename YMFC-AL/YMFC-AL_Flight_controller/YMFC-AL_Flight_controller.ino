@@ -47,8 +47,7 @@ byte highByte, lowByte;
 volatile int receiver_input_channel_1, receiver_input_channel_2, receiver_input_channel_3, receiver_input_channel_4;
 int counter_channel_1, counter_channel_2, counter_channel_3, counter_channel_4, loop_counter;
 int esc_1, esc_2, esc_3, esc_4;
-int throttle;
-float battery_voltage;
+int throttle, battery_voltage;
 int cal_int, start, gyro_address;
 int receiver_input[5];
 int temperature;
@@ -148,14 +147,11 @@ void setup(){
 
   //Load the battery voltage to the battery_voltage variable.
   //65 is the voltage compensation for the diode.
-  // 10 bit ADC. so 5V input produces the output 1023.
-  //
-  // Vb = 1/k * Va + V_diode (unit in Volts)
-  // k = 5.1/15.1
-  // Vb = 1/k * (5/1023) * analogRead(0) + 0.59
-  battery_voltage = 0.01447109 * analogRead(0) + 0.59;
-  Serial.println(battery_voltage, 2);
-  loop_timer = micros();                                                    //Set the timer for the next loop.
+  //12.6V equals ~5V @ Analog 0.
+  //12.6V equals 1023 analogRead(0).
+  //1260 / 1023 = 1.2317.
+  //The variable battery_voltage holds 1050 if the battery voltage is 10.5V.
+  battery_voltage = (analogRead(0) + 65) * 1.2317;                                          //Set the timer for the next loop.
 
   //When everything is done, turn off the led.
   digitalWrite(12,LOW);                                                     //Turn off the warning led.
@@ -273,10 +269,11 @@ void loop(){
 
   //The battery voltage is needed for compensation.
   //A complementary filter is used to reduce noise.
-  // expand out (0.01447109 * analogRead(0) + 0.59) * 0.08
-  battery_voltage = battery_voltage * 0.92 + 0.0011576872 * analogRead(0) + 0.0472;
+  //0.09853 = 0.08 * 1.2317.
+  battery_voltage = battery_voltage * 0.92 + (analogRead(0) + 65) * 0.09853;
+
   //Turn on the led if battery voltage is to low.
-  if(battery_voltage < 10.5 && battery_voltage > 9.7)digitalWrite(12, HIGH);
+  if(battery_voltage < 1000 && battery_voltage > 600)digitalWrite(12, HIGH);
 
   throttle = receiver_input_channel_3;                                      //We need the throttle signal as a base signal.
 
@@ -287,13 +284,12 @@ void loop(){
     esc_3 = throttle + pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
     esc_4 = throttle - pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
 
-    // Turning off voltage compensation for now.
-    // if (battery_voltage < 1240 && battery_voltage > 800){                   //Is the battery connected?
-    //   esc_1 += esc_1 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-1 pulse for voltage drop.
-    //   esc_2 += esc_2 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-2 pulse for voltage drop.
-    //   esc_3 += esc_3 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-3 pulse for voltage drop.
-    //   esc_4 += esc_4 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-4 pulse for voltage drop.
-    // }
+    if (battery_voltage < 1240 && battery_voltage > 800){                   //Is the battery connected?
+      esc_1 += esc_1 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-1 pulse for voltage drop.
+      esc_2 += esc_2 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-2 pulse for voltage drop.
+      esc_3 += esc_3 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-3 pulse for voltage drop.
+      esc_4 += esc_4 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-4 pulse for voltage drop.
+    }
 
     if (esc_1 < 1100) esc_1 = 1100;                                         //Keep the motors running.
     if (esc_2 < 1100) esc_2 = 1100;                                         //Keep the motors running.
