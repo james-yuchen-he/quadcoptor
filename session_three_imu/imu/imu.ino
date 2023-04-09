@@ -14,21 +14,21 @@
 #define MPU6050_ACCEL_CONFIG 0x1C
 
 uint8_t setup_data[SETUP_DATA_SIZE];
-uint8_t gyro_addr = 0;
+int gyro_addr = 0;
 uint16_t temperature;
 uint32_t loop_start_mark = 0;
 uint32_t calibration_sample_cnt = 0;
-uint8_t loop_counter = 0;
+uint32_t loop_counter = 0;
 
-int16_t raw_gyro_data[4];
-int16_t gyro_pitch_raw = 0, gyro_roll_raw = 0, gyro_yaw_raw = 0;
-float gyro_yaw_rad = 0;
-double gyro_offset_raw[3];
+int32_t raw_gyro_data[4];
+int32_t gyro_pitch_raw = 0, gyro_roll_raw = 0, gyro_yaw_raw = 0;
+double gyro_yaw_rad = 0;
+double gyro_offset_raw[4];
 
 double pitch = 0, roll = 0, yaw = 0;
 
-int16_t raw_acc_data[4];
-int16_t acc_x_raw = 0, acc_y_raw = 0, acc_z_raw = 0;
+int32_t raw_acc_data[4];
+int32_t acc_x_raw = 0, acc_y_raw = 0, acc_z_raw = 0;
 int32_t acc_total_vector = 0;
 double pitch_acc = 0, roll_acc = 0;
 bool first_angle = true;
@@ -52,11 +52,11 @@ void loop() {
   // make sure every loop lasts 4000 ms for the numerical integration to work
   // properly
   while(loop_start_mark + 4000 > micros());
-  loop_start_mark = micros();     
-  
+  loop_start_mark = micros();
+
   read_imu_data();
   pitch += gyro_pitch_raw * GYRO_RAW_2_DEG_PER_FOUR_MS;
-  roll += gyro_roll_raw * GYRO_RAW_2_DEG_PER_FOUR_MS; 
+  roll += gyro_roll_raw * GYRO_RAW_2_DEG_PER_FOUR_MS;
   gyro_yaw_rad = radians(gyro_yaw_raw * GYRO_RAW_2_DEG_PER_FOUR_MS);
 
   //If the IMU has yawed transfer the roll angle to the pitch angel.
@@ -69,7 +69,7 @@ void loop() {
 
   pitch_acc = degrees(asin((float)acc_y_raw/acc_total_vector));                //Calculate the pitch angle.
   roll_acc = degrees(asin((float)acc_x_raw/acc_total_vector)) * -1;                //Calculate the roll angle.
-  
+
   if(first_angle){
     pitch = pitch_acc;                                                 //Set the pitch angle to the accelerometer angle.
     roll = roll_acc;                                                   //Set the roll angle to the accelerometer angle.
@@ -89,7 +89,7 @@ void loop() {
   if(loop_counter == 5)Serial.println(gyro_yaw_raw / 65.5 ,2);
 
   loop_counter++;
-  if(loop_counter == 60)loop_counter = 0;      
+  if(loop_counter == 60)loop_counter = 0;
 }
 
 void imu_init()
@@ -119,6 +119,36 @@ void imu_init()
   Wire.endTransmission(gyro_addr);
 
   Serial.println("MPU-6050 init sequence complete");
+    // Wire.beginTransmission(gyro_addr);                        //Start communication with the address found during search.
+    // Wire.write(0x6B);                                            //We want to write to the PWR_MGMT_1 register (6B hex)
+    // Wire.write(0x00);                                            //Set the register bits as 00000000 to activate the gyro
+    // Wire.endTransmission();                                      //End the transmission with the gyro.
+
+    // Wire.beginTransmission(gyro_addr);                        //Start communication with the address found during search.
+    // Wire.write(0x1B);                                            //We want to write to the GYRO_CONFIG register (1B hex)
+    // Wire.write(0x08);                                            //Set the register bits as 00001000 (500dps full scale)
+    // Wire.endTransmission();                                      //End the transmission with the gyro
+
+    // Wire.beginTransmission(gyro_addr);                        //Start communication with the address found during search.
+    // Wire.write(0x1C);                                            //We want to write to the ACCEL_CONFIG register (1A hex)
+    // Wire.write(0x10);                                            //Set the register bits as 00010000 (+/- 8g full scale range)
+    // Wire.endTransmission();                                      //End the transmission with the gyro
+
+    // //Let's perform a random register check to see if the values are written correct
+    // Wire.beginTransmission(gyro_addr);                        //Start communication with the address found during search
+    // Wire.write(0x1B);                                            //Start reading @ register 0x1B
+    // Wire.endTransmission();                                      //End the transmission
+    // Wire.requestFrom(gyro_addr, 1);                           //Request 1 bytes from the gyro
+    // while(Wire.available() < 1);                                 //Wait until the 6 bytes are received
+    // if(Wire.read() != 0x08){                                     //Check if the value is 0x08
+    //   digitalWrite(12,HIGH);                                     //Turn on the warning led
+    //   while(1)delay(10);                                         //Stay in this loop for ever
+    // }
+
+    // Wire.beginTransmission(gyro_addr);                        //Start communication with the address found during search
+    // Wire.write(0x1A);                                            //We want to write to the CONFIG register (1A hex)
+    // Wire.write(0x03);                                            //Set the register bits as 00000011 (Set Digital Low Pass Filter to ~43Hz)
+    // Wire.endTransmission();                                      //End the transmission with the gyro
 }
 
 void validate_mpu()
@@ -144,10 +174,10 @@ void read_imu_data()
   Wire.beginTransmission(gyro_addr);
   Wire.write(0x3B);
   Wire.endTransmission();
-  Wire.requestFrom((int)gyro_addr, 14);
+  Wire.requestFrom(gyro_addr, 14);
   while (Wire.available() < 14);
 
-  raw_acc_data[1] = Wire.read()<<8 | Wire.read();                   
+  raw_acc_data[1] = Wire.read()<<8 | Wire.read();
   raw_acc_data[2] = Wire.read()<<8 | Wire.read();
   raw_acc_data[3] = Wire.read()<<8 | Wire.read();
   temperature = Wire.read()<<8 | Wire.read();
@@ -158,9 +188,9 @@ void read_imu_data()
   //Only compensate if the calibration was performed.
   if(calibration_sample_cnt == CAL_SAMPLES)
   {
-    raw_gyro_data[1] -= gyro_offset_raw[0];
-    raw_gyro_data[2] -= gyro_offset_raw[1];
-    raw_gyro_data[3] -= gyro_offset_raw[2];
+    raw_gyro_data[1] -= gyro_offset_raw[1];
+    raw_gyro_data[2] -= gyro_offset_raw[2];
+    raw_gyro_data[3] -= gyro_offset_raw[3];
   }
 
   gyro_roll_raw = raw_gyro_data[setup_data[28] & 0b00000011];           //Set gyro_roll to the correct axis that was stored in the EEPROM.
@@ -175,7 +205,7 @@ void read_imu_data()
   acc_y_raw = raw_acc_data[setup_data[28] & 0b00000011];                //Set acc_y to the correct axis that was stored in the EEPROM.
   if(setup_data[28] & 0b10000000) acc_y_raw *= -1;                   //Invert acc_y if the MSB of EEPROM bit 28 is set.
   acc_z_raw = raw_acc_data[setup_data[30] & 0b00000011];                //Set acc_z to the correct axis that was stored in the EEPROM.
-  if(setup_data[30] & 0b10000000) acc_z_raw *= -1;                   //Invert acc_z if the MSB of EEPROM bit 30 is set.  
+  if(setup_data[30] & 0b10000000) acc_z_raw *= -1;                   //Invert acc_z if the MSB of EEPROM bit 30 is set.
 }
 
 void print_raw_accel()

@@ -1,5 +1,5 @@
 {
-    "sketch": "demo_modules\\remote_control_io\\remote_control_io.ino",
+    "sketch": "session_three_imu\\imu\\imu.ino",
     "board": "arduino:avr:uno",
     "port": "COM3"
 }
